@@ -7,7 +7,6 @@
       - catatonit
 
   tasks:
-
    - name: disable firewall service
      service:
         name: firewalld
