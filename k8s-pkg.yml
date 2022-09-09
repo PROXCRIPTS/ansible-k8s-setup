@@ -1,8 +1,14 @@
-- hosts: all
+- hosts: servers
   become: yes
+  vars:
+    cpkgs:
+      - runc
+      - podman
+      - catatonit
+
   tasks:
 
-   - name: disable firewall service for labs
+   - name: disable firewall service
      service:
         name: firewalld
         state: stopped
@@ -18,13 +24,17 @@
        regexp: 'swap'
        state: absent
 
-   - name: install Docker
+   - name: uninstall docker conflicting packages on master and all nodes
      yum:
-       name: docker
-       state: present
+       name: '{{ cpkgs }}'
+       state: absent
        update_cache: true
 
-   - name: start Docker
+   - name: install docker packages on master and all nodes
+     shell: >
+      yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin --allowerasing --nobest
+
+   - name: start Docker service
      service:
        name: docker
        state: started
@@ -38,15 +48,15 @@
      selinux:
        state: disabled
 
-   - name: ensure net.bridge.bridge-nf-call-ip6tables is set to 1
+   - name: ensure net.bridge.bridge-nf-cservers-ip6tables is set to 1
      sysctl:
-      name: net.bridge.bridge-nf-call-ip6tables
+      name: net.bridge.bridge-nf-cservers-ip6tables
       value: 1
       state: present
 
-   - name: ensure net.bridge.bridge-nf-call-iptables is set to 1
+   - name: ensure net.bridge.bridge-nf-cservers-iptables is set to 1
      sysctl:
-      name: net.bridge.bridge-nf-call-iptables
+      name: net.bridge.bridge-nf-cservers-iptables
       value: 1
       state: present
 
@@ -58,13 +68,13 @@
       gpgkey: https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
       gpgcheck: yes
 
-   - name: install kubelet
+   - name: instservers kubelet
      yum:
         name: kubelet-1.14.0
         state: present
         update_cache: true
 
-   - name: install kubeadm
+   - name: instservers kubeadm
      yum:
         name: kubeadm-1.14.0
         state: present
@@ -78,14 +88,14 @@
 - hosts: masters
   become: yes
   tasks:
-   - name: install kubectl
+   - name: instservers kubectl
      yum:
         name: kubectl-1.14.0
         state: present
-        allow_downgrade: yes
+        serversow_downgrade: yes
 
-- hosts: all
+- hosts: servers
   become: yes
   tasks:
-   - name: reboot ALL machines
+   - name: reboot servers machines
      reboot:
