@@ -5,8 +5,15 @@
       - runc
       - podman
       - catatonit
+    ip_modules:
+      - ip_vs
+      - ip_vs_rr
+      - ip_vs_wrr
+      - ip_vs_sh
+      - br_netfilter  
 
   tasks:
+
    - name: disable firewall service
      service:
         name: firewalld
@@ -29,6 +36,20 @@
        state: absent
        update_cache: true
 
+   - name: Configure docker-ce repository
+     tags:
+        - repos
+     yum_repository:
+      name: docker-ce
+      description: docker-ce
+      baseurl: https://download.docker.com/linux/centos/7/x86_64/stable/
+      enabled: true
+      gpgcheck: true
+      repo_gpgcheck: true
+      gpgkey:
+        - https://download.docker.com/linux/centos/gpg
+      state: present
+
    - name: install docker packages on master and all nodes
      shell: >
       yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin --allowerasing --nobest
@@ -47,54 +68,63 @@
      selinux:
        state: disabled
 
-   - name: ensure net.bridge.bridge-nf-cservers-ip6tables is set to 1
-     sysctl:
-      name: net.bridge.bridge-nf-cservers-ip6tables
-      value: 1
-      state: present
+   - name: configure network settings
+     tags:
+      - os-settings
+     command: modprobe '{{ item }}'
+     loop: '{{ ip_modules }}'
 
-   - name: ensure net.bridge.bridge-nf-cservers-iptables is set to 1
-     sysctl:
-      name: net.bridge.bridge-nf-cservers-iptables
-      value: 1
+   - name: Modprobe
+     tags:
+      - os-settings
+     lineinfile:
+      path: "/etc/modules"
+      line: "{{ item }}"
+      create: yes
       state: present
+     loop: "{{ ip_modules }}"
+
+   - name:  set iptables
+     tags:  
+      - os-settings   
+     sysctl:
+      name: '{{ item }}'
+      value: 1
+      sysctl_set: yes
+      state: present
+      reload: yes
+     loop:
+      - net.bridge.bridge-nf-call-ip6tables
+      - net.bridge.bridge-nf-call-iptables 
 
    - name: add Kubernetes YUM repository
      yum_repository:
       name: Kubernetes
       description: Kubernetes YUM repository
+      enabled: true
       baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
-      gpgkey: https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-      gpgcheck: yes
+      gpgkey: 
+        - https://packages.cloud.google.com/yum/doc/yum-key.gpg 
+        - https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+      gpgcheck: true
+      repo_gpgcheck: true
+      state: present
 
-   - name: instservers kubelet
+   - name: install kubernetes packages
      yum:
-        name: kubelet-1.14.0
-        state: present
-        update_cache: true
-
-   - name: instservers kubeadm
-     yum:
-        name: kubeadm-1.14.0
-        state: present
+      name: '{{ item }}'
+      state: present
+      update_cache: true
+     loop:
+      - kubeadm
+      - kubelet
+      - kubectl   
 
    - name: start kubelet
      service:
        name: kubelet
        enabled: yes
        state: started
-
-- hosts: masters
-  become: yes
-  tasks:
-   - name: instservers kubectl
-     yum:
-        name: kubectl-1.14.0
-        state: present
-        serversow_downgrade: yes
-
-- hosts: servers
-  become: yes
-  tasks:
+       
    - name: reboot servers machines
      reboot:
