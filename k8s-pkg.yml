@@ -14,7 +14,7 @@
 
   tasks:
 
-   - name: disable firewall service
+   - name: disable firewall 
      service:
         name: firewalld
         state: stopped
@@ -30,35 +30,28 @@
        regexp: 'swap'
        state: absent
 
-   - name: uninstall docker conflicting packages on master and all nodes
+   - name: uninstall conflicting packages 
      yum:
        name: '{{ cpkgs }}'
        state: absent
        update_cache: true
 
-   - name: Configure docker-ce repository
-     tags:
-        - repos
-     yum_repository:
-      name: docker-ce
-      description: docker-ce
-      baseurl: https://download.docker.com/linux/centos/7/x86_64/stable/
-      enabled: true
-      gpgcheck: true
-      repo_gpgcheck: true
-      gpgkey:
-        - https://download.docker.com/linux/centos/gpg
-      state: present
 
-   - name: install docker packages on master and all nodes
+   - name: install docker 
      shell: >
-      yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin --allowerasing --nobest
+      yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin --allowerasing --nobest 
+#     yum:
+#      name: '{{ packages }}'
+#      state: present
+#      releasever: '18.09.9'
+#      allow_downgrade: true 
+#      update_cache: true
+#     vars:
+#      packages:
+#        - docker-ce
+#        - docker-ce-cli
+#        - docker-compose-plugin
 
-   - name: start Docker service
-     service:
-       name: docker
-       state: started
-       enabled: true
 
    - name: disable SELinux
      command: setenforce 0
@@ -97,10 +90,10 @@
       - net.bridge.bridge-nf-call-ip6tables
       - net.bridge.bridge-nf-call-iptables 
 
-   - name: add Kubernetes YUM repository
+   - name: configure kubernetes repo
      yum_repository:
       name: Kubernetes
-      description: Kubernetes YUM repository
+      description: Kubernetes repo
       enabled: true
       baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
       gpgkey: 
@@ -110,7 +103,7 @@
       repo_gpgcheck: true
       state: present
 
-   - name: install kubernetes packages
+   - name: install packages
      yum:
       name: '{{ item }}'
       state: present
@@ -118,13 +111,16 @@
      loop:
       - kubeadm
       - kubelet
-      - kubectl   
+      - kubectl
 
-   - name: start kubelet
+   - name: start services
      service:
-       name: kubelet
+       name: '{{ item }}'
        enabled: yes
        state: started
+     loop:
+      - docker
+      - kubelet
        
    - name: reboot servers machines
      reboot:

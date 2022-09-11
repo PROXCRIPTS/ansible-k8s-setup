@@ -1,8 +1,14 @@
 - hosts: masters
   become: yes
   tasks:
+    - name: kubeadm reset
+      shell: >
+        kubeadm reset -f
+
     - name: initialize K8S cluster
-      shell: kubeadm init --pod-network-cidr=172.16.0.0/16 --apiserver-advertise-address=10.0.0.100
+      shell: >
+        kubeadm init --pod-network-cidr=172.16.0.0/16 --apiserver-advertise-address=192.168.1.111
+        
 
     - name: create .kube directory
       file:
