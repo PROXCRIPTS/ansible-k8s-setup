@@ -1,10 +1,6 @@
 - hosts: servers
   become: yes
   vars:
-    cpkgs:
-      - runc
-      - podman
-      - catatonit
     ip_modules:
       - ip_vs
       - ip_vs_rr
@@ -13,7 +9,6 @@
       - br_netfilter  
 
   tasks:
-
    - name: disable firewall 
      service:
         name: firewalld
@@ -30,28 +25,18 @@
        regexp: 'swap'
        state: absent
 
-   - name: uninstall conflicting packages 
-     yum:
-       name: '{{ cpkgs }}'
-       state: absent
-       update_cache: true
+   - name: install yum-utils
+     yum: 
+      name: yum-utils
+      state: present
 
+   - name: install docker repo
+     shell: >
+      yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 
    - name: install docker 
      shell: >
-      yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin --allowerasing --nobest 
-#     yum:
-#      name: '{{ packages }}'
-#      state: present
-#      releasever: '18.09.9'
-#      allow_downgrade: true 
-#      update_cache: true
-#     vars:
-#      packages:
-#        - docker-ce
-#        - docker-ce-cli
-#        - docker-compose-plugin
-
+      yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin 
 
    - name: disable SELinux
      command: setenforce 0
@@ -92,21 +77,25 @@
 
    - name: configure kubernetes repo
      yum_repository:
-      name: Kubernetes
-      description: Kubernetes repo
-      enabled: true
-      baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+      name: kubernetes
+      description: kubernetes repo
+      enabled: 1
+      gpgcheck: 1
+      ip_resolve: whatever
+      keepalive: yes
+      baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-\$basearch
       gpgkey: 
         - https://packages.cloud.google.com/yum/doc/yum-key.gpg 
         - https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-      gpgcheck: true
-      repo_gpgcheck: true
-      state: present
+      exclude: 
+        - kubelet 
+        - kubeadm 
+        - kubectl
 
    - name: install packages
      yum:
       name: '{{ item }}'
-      state: present
+      state: latest
       update_cache: true
      loop:
       - kubeadm
@@ -116,7 +105,7 @@
    - name: start services
      service:
        name: '{{ item }}'
-       enabled: yes
+       enabled: true
        state: started
      loop:
       - docker
